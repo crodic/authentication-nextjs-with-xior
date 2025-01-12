@@ -6,13 +6,12 @@ import { httpClient } from '@/lib/httpClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { XiorError } from 'xior';
+import xior, { XiorError } from 'xior';
 
 export default function ProfileView() {
     const router = useRouter();
     const signOut = async () => {
-        httpClient.defaults.baseURL = 'http://localhost:3000/api';
-        await httpClient.post('/auth/logout', {
+        await xior.post('http://localhost:3000/api/auth/logout', {
             credentials: 'same-origin',
         });
         router.push('/auth/login');
