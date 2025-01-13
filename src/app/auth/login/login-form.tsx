@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox';
 import { LockIcon, MailIcon } from 'lucide-react';
 import { httpClient } from '@/lib/httpClient';
-import xior from 'xior';
+import xior, { XiorError } from 'xior';
 import { useRouter } from 'next/navigation';
+import { LoginResponseData } from '@/types/apis';
 
 const formSchema = z.object({
     email: z.string(),
@@ -38,20 +39,25 @@ export default function LoginForm() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsLoading(true);
         try {
-            const { data } = await httpClient.post('/auth/login', {
+            const { data } = await httpClient.post<LoginResponseData>('/auth/login', {
                 username: values.email,
                 password: values.password,
                 expiresInMins: values.rememberMe ? 5 : 2,
             });
             const { accessToken, refreshToken } = data;
-            await xior.post('http://localhost:3000/api/auth/tokens', {
-                accessToken,
-                refreshToken,
-                isRememberMe: values.rememberMe,
-            });
+            await xior.post<Pick<LoginResponseData, 'accessToken' | 'refreshToken'>>(
+                'http://localhost:3000/api/auth/tokens',
+                {
+                    accessToken,
+                    refreshToken,
+                    isRememberMe: values.rememberMe,
+                }
+            );
             router.push('/profile');
         } catch (error) {
-            console.log(error);
+            if (error instanceof XiorError) {
+                console.log(error.message);
+            }
         } finally {
             setIsLoading(false);
         }

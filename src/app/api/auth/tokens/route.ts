@@ -11,7 +11,7 @@ export const GET = async () => {
 };
 
 export const POST = async (req: Request) => {
-    const body = await req.json();
+    const body: { accessToken: string; refreshToken: string; isRememberMe: boolean } = await req.json();
     const cookieStore = cookies();
     const { accessToken, refreshToken, isRememberMe } = body;
 
@@ -22,7 +22,7 @@ export const POST = async (req: Request) => {
         return Response.json({ message: 'Error' }, { status: 400 });
     }
 
-    if (isRememberMe === true) {
+    if (isRememberMe) {
         cookieStore.set('remember', 'true', { path: '/', expires: new Date(expRefreshToken * 1000) });
     }
 
