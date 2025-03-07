@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import xior from 'xior';
+import xior, { XiorInterceptorRequestConfig } from 'xior';
 
 export const httpClient = xior.create({
     baseURL: 'https://dummyjson.com',
@@ -24,15 +24,19 @@ let refreshTokenPromise: Promise<any> | null = null;
 httpClient.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originalRequest = error.config;
-        if (error.response?.status === 401 && originalRequest) {
+        const originalRequest = error.config as XiorInterceptorRequestConfig & { _retry?: boolean };
+        console.log('>>> Check _retry:', originalRequest._retry);
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            console.log('>>> Xior chuẩn bị refresh token');
+            originalRequest._retry = true;
             if (!refreshTokenPromise) {
                 const getToken = await xior.get('http://localhost:3000/api/auth/tokens');
                 const { refreshToken, remember } = getToken.data;
+                console.log('>>> Xior lấy Refresh Token', refreshToken);
 
                 if (!refreshToken) return Promise.reject(error);
 
-                console.log('Client Start Refresh Token');
+                console.log('>>> Xior Client Start Refresh Token');
 
                 refreshTokenPromise = xior
                     .post(
@@ -47,10 +51,10 @@ httpClient.interceptors.response.use(
                         const { accessToken, refreshToken } = res.data;
                         await xior.post('http://localhost:3000/api/auth/tokens', { accessToken, refreshToken });
                         httpClient.defaults.headers.Authorization = `Bearer ${accessToken}`;
-                        console.log('Success');
+                        console.log('>>> Xior Client Refresh Token Thành công');
                     })
                     .catch(async () => {
-                        console.log('Refresh Error');
+                        console.log('>>> Xior Client Refresh Error');
                         await xior.delete('http://localhost:3000/api/auth/tokens');
                         if (typeof window !== 'undefined') {
                             location.href = '/auth/login';
@@ -59,8 +63,13 @@ httpClient.interceptors.response.use(
                     .finally(() => {
                         refreshTokenPromise = null;
                     });
+            } else {
+                console.log('>>> Xior đang refresh token');
             }
+            console.log('>>> Chuẩn bị gọi lại request');
             return refreshTokenPromise.then(() => {
+                originalRequest.headers.Authorization = httpClient.defaults.headers.Authorization;
+                console.log('>>> Xior gọi lại request', originalRequest);
                 return httpClient.request(originalRequest);
             });
         }
